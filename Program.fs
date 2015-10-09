@@ -7,25 +7,19 @@ module Main =
     open FSharp.Data
     open System.Xml.Linq
 
-
     type Collection = XmlProvider<"Resources/irg_collection.trec">
 
+    let tokenize (text:string) =
+        let sepAry = [| ' '; ','|]
+        Array.toList (text.Split sepAry)
 
     [<EntryPoint>]
-    let main argv =
-       // let parsedFile = File.ReadAllLines("../../Resources/irg_collection.trec")
-        //let parsedStr = Array.reduce (fun acc item -> acc + item) parsedFile 
-        //let test = Collection.Parse "Resources/irg_collection.trec"   
+    let main argv = 
         let collection =Collection.Load "../../Resources/irg_collection.trec"
-        //let docItem = new DocumentItem(12,"abc","abc")
-        let abc = collection.Docs;
-        //let documentItems = Array.map (fun doc -> new DocumentItem((1, doc.Text, "abc"))) collection.Docs 
-        //documentItems.c
-
-        for doc in collection.Docs do
-            //printfn "%s" doc.GetType()
-            printfn "%s" doc.Text
-            printfn "%i" doc.RecordId 
+        let documentItems= Array.toList(collection.Docs |> Array.map (fun doc ->
+            (doc.RecordId,DocumentItem(doc.RecordId,doc.Text,tokenize(doc.Text)))))
+        let documentsById = Map.ofList documentItems
+        documentItems |> List.iter (fun doc -> printfn "%s" (snd doc).OriginalText)
         0;
         //0 // return an integer exit code
 
