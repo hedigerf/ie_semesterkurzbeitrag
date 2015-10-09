@@ -9,7 +9,6 @@ module TypeDomain =
         member this.OriginalText: string = originalText
         member this.TokenizedText: List<string> = tokenizedText
 
-    type Occurence(recordId,originalText,tokenizedText) =
-        member this.RecordId: int = recordId
-        member this.OriginalText: string = originalText
-        member this.TokenizedText: List<string> = tokenizedText
+    type Occurency(referencedDocIds) =
+        member this.RefecencedDocIds: List<int> = referencedDocIds
+        member this.Frequency = List.length referencedDocIds
