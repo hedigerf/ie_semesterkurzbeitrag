@@ -15,7 +15,7 @@ module Main =
 
     let rec addEntry word recordId (acc:Map<string,Occurency>) =
         match acc.TryFind(word) with
-        | Some(occ) -> acc.Remove(word).Add(word,Occurency(recordId :: occ.RefecencedDocIds))
+        | Some(occ) -> acc.Remove(word).Add(word,occ.Add(recordId))
         | None -> acc.Add(word,Occurency([recordId]))
 
     let rec searchDocument (document:DocumentItem) (acc:Map<string,Occurency>) =
@@ -27,7 +27,17 @@ module Main =
         match documentItems with
         | head::tail -> searchDocument head acc
         | [] -> acc
-
+    
+    //not correctly implemented
+    let rec intersect cur1 (postings1:List<int>) cur2 (postings2:List<int>) (acc:List<int>) =
+    //implement with optipon types
+        if (cur1 > -1 && cur2 > - 1) then
+            if (cur1 = cur2) then
+                intersect (if postings1.Length > 0 then postings1.Head else -1) postings1.Tail postings2.Head postings2.Tail (cur1::acc)
+            elif cur1 < cur2 then intersect postings1.Head postings1.Tail cur2 postings2 acc
+            else intersect cur1 postings1 postings2.Head postings2.Tail acc
+        else acc
+        
     [<EntryPoint>]
     let main argv = 
         let stopWatch = System.Diagnostics.Stopwatch.StartNew()
