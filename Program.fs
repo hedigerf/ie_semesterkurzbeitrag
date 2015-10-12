@@ -6,12 +6,27 @@ module Main =
     open System
     open FSharp.Data
     open System.Xml.Linq
+    open Lucene.Net.Analysis
+    open Lucene.Net.Analysis.Tokenattributes
+    open Lucene.Net.Util
+    open Lucene.Net.Analysis.Standard
 
     type Collection = XmlProvider<"Resources/irg_collection.trec">
 
     let tokenize (text:string) =
-        let sepAry = [| ' '; ','|]
-        Array.toList (text.Split sepAry)
+        let lowerCaseTokenizer = new LowerCaseTokenizer(new StringReader(text))
+        let standardFilter = new StandardFilter(lowerCaseTokenizer)
+        let stopList = new Collections.Generic.HashSet<string>();
+        let stopFilter = new StopFilter(false,standardFilter,stopList)
+        let porterFilter = new PorterStemFilter(stopFilter)
+        let termAttr = porterFilter.AddAttribute<ITermAttribute>()
+        let terms =
+            [
+                while(porterFilter.IncrementToken())
+                    do yield(porterFilter.GetAttribute<ITermAttribute>().ToString())
+             ]
+        terms
+
 
     let rec addEntry word recordId (acc:Map<string,Occurency>) =
         match acc.TryFind(word) with
