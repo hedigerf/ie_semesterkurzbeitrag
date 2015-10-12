@@ -23,35 +23,54 @@ module Main =
         let terms =
             [
                 while(porterFilter.IncrementToken())
-                    do yield(porterFilter.GetAttribute<ITermAttribute>().ToString())
+                    do yield(porterFilter.GetAttribute<ITermAttribute>().ToString().Substring(5))
              ]
         terms
 
-
-    let rec addEntry word recordId (acc:Map<string,Occurency>) =
-        match acc.TryFind(word) with
-        | Some(occ) -> acc.Remove(word).Add(word,occ.Add(recordId))
-        | None -> acc.Add(word,Occurency([recordId]))
-
-    let rec searchDocument (document:DocumentItem) (acc:Map<string,Occurency>) =
-        match document.TokenizedText with
-        | head::tail -> addEntry head document.RecordId acc
-        | [] -> acc
-
     let rec buildFrequencyMap (documentItems:List<DocumentItem>) (acc:Map<string,Occurency>) =
+
+        let rec addEntry word recordId (acc:Map<string,Occurency>) =
+            match acc.TryFind(word) with
+            | Some(occ) -> acc.Remove(word).Add(word,occ.Add(recordId))
+            | None -> acc.Add(word,Occurency([recordId]))
+
+        let rec searchDocument (document:DocumentItem) (acc:Map<string,Occurency>) =
+            let rec helper tokenizedText (acc:Map<string,Occurency>)=
+                match tokenizedText with
+                | head::tail -> helper tail (addEntry head document.RecordId acc)
+                | [] ->  acc
+            helper document.TokenizedText acc
+
         match documentItems with
-        | head::tail -> searchDocument head acc
+        | head::tail -> buildFrequencyMap tail (searchDocument head acc)
         | [] -> acc
     
-    //not correctly implemented
     let rec intersect cur1 (postings1:List<int>) cur2 (postings2:List<int>) (acc:List<int>) =
-    //implement with optipon types
-        if (cur1 > -1 && cur2 > - 1) then
-            if (cur1 = cur2) then
-                intersect (if postings1.Length > 0 then postings1.Head else -1) postings1.Tail postings2.Head postings2.Tail (cur1::acc)
-            elif cur1 < cur2 then intersect postings1.Head postings1.Tail cur2 postings2 acc
-            else intersect cur1 postings1 postings2.Head postings2.Tail acc
-        else acc
+
+        if(cur1 = cur2) then
+            match postings1,postings2 with
+            | head1::[], head2::tail2 ->  intersect head1 [] head2 tail2 (cur1::acc)
+            | head1::tail1,head2::[] -> intersect head1 tail1 head2 [] (cur1::acc)
+            | head1::tail1,head2::tail2 -> intersect head1 tail1 head2 tail2 (cur1::acc)
+            | [], head2::tail2 -> intersect cur1 [] head2 tail2 (cur1::acc)
+            | head1::tail1,[] -> intersect head1 tail1 cur2 [] (cur1::acc)
+            | [],[] -> acc
+
+        elif (cur1 < cur2) then
+            match postings1,postings2 with
+            | head1::[], _ ->  intersect head1 [] cur2 postings2 acc
+            | head1::tail1,_ -> intersect head1 tail1 cur2 postings2 acc
+            | [], head2::tail2 -> acc
+            | [],[] -> acc
+
+        else 
+            match postings1,postings2 with
+            | _, head2::[] -> intersect cur1 postings1 head2 [] acc
+            | _, head2::tail2 ->  intersect cur1 postings1 head2 tail2 acc
+            | head1::tail1,[] -> acc
+            | [],[] -> acc
+
+
         
     [<EntryPoint>]
     let main argv = 
@@ -60,6 +79,14 @@ module Main =
         let documentItems = Array.toList(collection.Docs |> Array.map (fun doc ->
             DocumentItem(doc.RecordId,doc.Text,stemm(doc.Text))))
         let frequencyMap = buildFrequencyMap documentItems Map.empty<string,Occurency>
+        let have = frequencyMap.TryFind "have"
+        let house = frequencyMap.TryFind "hous"
+        let inter =match have,house with 
+        |Some(s1),Some(s2) -> 
+            let pos1 = Set.toList(s1.RefecencedDocIds)
+            let pos2 = Set.toList(s2.RefecencedDocIds)
+            intersect pos1.Head pos1.Tail pos2.Head pos2.Tail []
+        | _ -> []
         //let documentItems= Array.toList(collection.Docs |> Array.map (fun doc ->
         //    (doc.RecordId,DocumentItem(doc.RecordId,doc.Text,tokenize(doc.Text)))))
         //let documentsById = Map.ofList documentItems

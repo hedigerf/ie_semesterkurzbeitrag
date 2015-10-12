@@ -10,7 +10,7 @@ module TypeDomain =
         member this.TokenizedText: List<string> = tokenizedText
 
     type Occurency(referencedDocIds) =
-        member this.RefecencedDocIds: List<int> = List.sort referencedDocIds 
+        member this.RefecencedDocIds: Set<int> = Set.ofList (List.sort referencedDocIds) 
         member this.Frequency = List.length referencedDocIds
         
         member this.Add(referencedDocId) =
