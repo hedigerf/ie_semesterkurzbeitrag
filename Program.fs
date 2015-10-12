@@ -111,11 +111,11 @@ module Main =
         let queries = loadTrecEntries "../../Resources/irg_queries.trec"
         let freqs= collectFrequency queries.Head  frequencyMap
         let freqsAsList = freqs |> List.map (fun occr -> Set.toList occr.RefecencedDocIds)
-        //this reduce doesnt return the correct result -> improve
+        //finds only documents which have all of the desired words contained.
         let united=freqsAsList |> List.reduce (fun acc lst ->
             match acc,lst with
             | accHead::accTail,lstHead::lstTail ->  intersect acc.Head acc.Tail lstHead lstTail []
-            | [],lstHead::listTail -> lst
+            | _ -> acc
          )
 
          //test code start
