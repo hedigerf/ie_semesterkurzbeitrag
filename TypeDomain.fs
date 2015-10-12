@@ -4,7 +4,7 @@ open System
 [<AutoOpen>]
 module TypeDomain =
 
-    type DocumentItem(recordId,originalText,tokenizedText) =
+    type TrecEntry(recordId,originalText,tokenizedText) =
         member this.RecordId: int = recordId
         member this.OriginalText: string = originalText
         member this.TokenizedText: List<string> = tokenizedText
@@ -15,3 +15,5 @@ module TypeDomain =
         
         member this.Add(referencedDocId) =
             new Occurency(referencedDocId :: referencedDocIds)
+
+    
