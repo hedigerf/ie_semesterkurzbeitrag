@@ -13,11 +13,11 @@ module Main =
 
     type Collection = XmlProvider<"Resources/irg_collection.trec">
 
-    let tokenize (text:string) =
+    let stemm (text:string) =
         let lowerCaseTokenizer = new LowerCaseTokenizer(new StringReader(text))
         let standardFilter = new StandardFilter(lowerCaseTokenizer)
         let stopList = new Collections.Generic.HashSet<string>();
-        let stopFilter = new StopFilter(false,standardFilter,stopList)
+        let stopFilter = new StopFilter(false,standardFilter,StopAnalyzer.ENGLISH_STOP_WORDS_SET)
         let porterFilter = new PorterStemFilter(stopFilter)
         let termAttr = porterFilter.AddAttribute<ITermAttribute>()
         let terms =
@@ -58,7 +58,7 @@ module Main =
         let stopWatch = System.Diagnostics.Stopwatch.StartNew()
         let collection =Collection.Load "../../Resources/irg_collection.trec"
         let documentItems = Array.toList(collection.Docs |> Array.map (fun doc ->
-            DocumentItem(doc.RecordId,doc.Text,tokenize(doc.Text))))
+            DocumentItem(doc.RecordId,doc.Text,stemm(doc.Text))))
         let frequencyMap = buildFrequencyMap documentItems Map.empty<string,Occurency>
         //let documentItems= Array.toList(collection.Docs |> Array.map (fun doc ->
         //    (doc.RecordId,DocumentItem(doc.RecordId,doc.Text,tokenize(doc.Text)))))
