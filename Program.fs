@@ -15,6 +15,9 @@ module Main =
 
     type Queries = XmlProvider<"Resources/irg_queries.trec">
 
+    type IndexPair = {nonInvertedIndex: Map<int,InvertedIndexOccurence>;
+                      invertedIndex: Map<string,InvertedIndexOccurence>}
+
     module Seq =     
         let pmap f l =
             seq{ for a in l -> async { return f a } }
@@ -38,20 +41,23 @@ module Main =
     let rec createIndexes documentItems acc =
      
         
-        let rec addEntry word recordId (invertedIndex:Map<string,InvertedIndexOccurence>) =
+        let rec addEntry word recordId indexPair =
 
             let addIndex (index: Map<_,InvertedIndexOccurence>) key value =
                 match index.TryFind(key) with
-                | Some(occ) -> index.Remove(key).Add(word,occ.Add(value))
+                | Some(occ) -> index.Remove(key).Add(key,occ.Add(value))
                 | None -> index.Add(key,InvertedIndexOccurence([value]))
-            addIndex invertedIndex word recordId
+            
+            {nonInvertedIndex=(addIndex indexPair.nonInvertedIndex recordId word);
+            invertedIndex=(addIndex indexPair.invertedIndex word recordId;)}
 
-        let rec searchDocument (document:TrecEntry) (acc:Map<string,InvertedIndexOccurence>) =
-            let rec helper tokenizedText (acc:Map<string,InvertedIndexOccurence>)=
+        let rec searchDocument (document:TrecEntry) indexPair =
+
+            let rec helper tokenizedText indexPair=
                 match tokenizedText with
-                | head::tail -> helper tail (addEntry head document.RecordId acc)
+                | head::tail -> helper tail (addEntry head document.RecordId indexPair)
                 | [] ->  acc
-            helper document.TokenizedText acc
+            helper document.TokenizedText indexPair
 
         match documentItems with
         | head::tail ->  createIndexes tail (searchDocument head acc)
