@@ -10,13 +10,9 @@ module Main =
     open Lucene.Net.Analysis.Tokenattributes
     open Lucene.Net.Util
     open Lucene.Net.Analysis.Standard
+    open Indexes
 
-    type Collection = XmlProvider<"Resources/irg_collection.trec">
-
-    type Queries = XmlProvider<"Resources/irg_queries.trec">
-
-    type IndexPair = {nonInvertedIndex: Map<int,InvertedIndexOccurence>;
-                      invertedIndex: Map<string,InvertedIndexOccurence>}
+  
 
     module Seq =     
         let pmap f l =
@@ -37,32 +33,6 @@ module Main =
                     do yield(porterFilter.GetAttribute<ITermAttribute>().ToString().Substring(5))
              ]
         terms
-
-    let rec createIndexes documentItems acc =
-     
-        
-        let rec addEntry word recordId indexPair =
-
-            let addIndex (index: Map<_,InvertedIndexOccurence>) key value =
-                match index.TryFind(key) with
-                | Some(occ) -> index.Remove(key).Add(key,occ.Add(value))
-                | None -> index.Add(key,InvertedIndexOccurence([value]))
-            
-            {nonInvertedIndex=(addIndex indexPair.nonInvertedIndex recordId word);
-            invertedIndex=(addIndex indexPair.invertedIndex word recordId;)}
-
-        let rec searchDocument (document:TrecEntry) indexPair =
-
-            let rec helper tokenizedText indexPair=
-                match tokenizedText with
-                | head::tail -> helper tail (addEntry head document.RecordId indexPair)
-                | [] ->  acc
-            helper document.TokenizedText indexPair
-
-        match documentItems with
-        | head::tail ->  createIndexes tail (searchDocument head acc)
-        | [] -> acc
-        
 
     let rec intersect cur1 postings1 cur2 postings2 acc =
 
@@ -117,7 +87,7 @@ module Main =
     let main argv = 
         let stopWatch = System.Diagnostics.Stopwatch.StartNew()
         let documentItems = loadTrecEntries "../../Resources/irg_collection.trec"
-        let frequencyMap = buildFrequencyMap documentItems
+        let frequencyMap = (createIndexes documentItems).invertedIndex
         let queries = loadTrecEntries "../../Resources/irg_queries.trec"
         let freqs= collectFrequency queries.Head  frequencyMap
         let freqsAsList = freqs |> List.map (fun occr -> Set.toList occr.RefecencedDocIds)
