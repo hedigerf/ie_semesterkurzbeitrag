@@ -18,8 +18,10 @@ module Indexes =
                             | None -> index.Add(key,InvertedIndexOccurence([value]))
 
                         printfn "Adding Index for Document: %i and Term: %s" recordId word 
-                        {nonInvertedIndex=(addIndex indexPair.nonInvertedIndex recordId word);
-                        invertedIndex=(addIndex indexPair.invertedIndex word recordId;)}
+                        {
+                            nonInvertedIndex=(addIndex indexPair.nonInvertedIndex recordId word);
+                            invertedIndex=(addIndex indexPair.invertedIndex word recordId;)
+                        }
 
                     match tokenizedText with
                     | head::tail -> helper tail (addEntry head document.RecordId indexPair)

@@ -87,7 +87,7 @@ module Main =
     let main argv = 
         let stopWatch = System.Diagnostics.Stopwatch.StartNew()
         let documentItems = loadTrecEntries "../../Resources/irg_collection.trec"
-        let frequencyMap = (createIndexes documentItems).invertedIndex
+        let frequencyMap = (Indexes.createIndexes documentItems).invertedIndex
         let queries = loadTrecEntries "../../Resources/irg_queries.trec"
         let freqs= collectFrequency queries.Head  frequencyMap
         let freqsAsList = freqs |> List.map (fun occr -> Set.toList occr.RefecencedDocIds)
@@ -101,12 +101,13 @@ module Main =
          //test code start
         let have = frequencyMap.TryFind "have"
         let house = frequencyMap.TryFind "hous"
-        let inter =match have,house with 
-        | Some(s1),Some(s2) -> 
-            let pos1 = Set.toList(s1.RefecencedDocIds)
-            let pos2 = Set.toList(s2.RefecencedDocIds)
-            intersect pos1.Head pos1.Tail pos2.Head pos2.Tail []
-        | _ -> []
+        let inter =
+            match have,house with 
+            | Some(s1),Some(s2) -> 
+                let pos1 = Set.toList(s1.RefecencedDocIds)
+                let pos2 = Set.toList(s2.RefecencedDocIds)
+                intersect pos1.Head pos1.Tail pos2.Head pos2.Tail []
+            | _ -> []
         //test code end
 
         //let documentItems= Array.toList(collection.Docs |> Array.map (fun doc ->
