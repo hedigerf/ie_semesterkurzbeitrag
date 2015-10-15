@@ -89,25 +89,25 @@ module Main =
         let documentItems = loadTrecEntries "../../Resources/irg_collection.trec"
         let frequencyMap = (Indexes.createIndexes documentItems).invertedIndex
         let queries = loadTrecEntries "../../Resources/irg_queries.trec"
-        let freqs= collectFrequency queries.Head  frequencyMap
-        let freqsAsList = freqs |> List.map (fun occr -> Set.toList occr.RefecencedDocIds)
-        //finds only documents which have all of the desired words contained.
-        let united=freqsAsList |> List.reduce (fun acc lst ->
-            match acc,lst with
-            | accHead::accTail,lstHead::lstTail ->  intersect acc.Head acc.Tail lstHead lstTail []
-            | _ -> acc
-         )
-
-         //test code start
-        let have = frequencyMap.TryFind "have"
-        let house = frequencyMap.TryFind "hous"
-        let inter =
-            match have,house with 
-            | Some(s1),Some(s2) -> 
-                let pos1 = Set.toList(s1.RefecencedDocIds)
-                let pos2 = Set.toList(s2.RefecencedDocIds)
-                intersect pos1.Head pos1.Tail pos2.Head pos2.Tail []
-            | _ -> []
+//        let freqs= collectFrequency queries.Head  frequencyMap
+//        let freqsAsList = freqs |> List.map (fun occr -> Set.toList occr.RefecencedDocIds)
+//        //finds only documents which have all of the desired words contained.
+//        let united=freqsAsList |> List.reduce (fun acc lst ->
+//            match acc,lst with
+//            | accHead::accTail,lstHead::lstTail ->  intersect acc.Head acc.Tail lstHead lstTail []
+//            | _ -> acc
+//         )
+//
+//         //test code start
+//        let have = frequencyMap.TryFind "have"
+//        let house = frequencyMap.TryFind "hous"
+//        let inter =
+//            match have,house with 
+//            | Some(s1),Some(s2) -> 
+//                let pos1 = Set.toList(s1.RefecencedDocIds)
+//                let pos2 = Set.toList(s2.RefecencedDocIds)
+//                intersect pos1.Head pos1.Tail pos2.Head pos2.Tail []
+//            | _ -> []
         //test code end
 
         //let documentItems= Array.toList(collection.Docs |> Array.map (fun doc ->

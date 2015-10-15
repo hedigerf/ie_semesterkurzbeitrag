@@ -1,37 +1,49 @@
 ﻿namespace Semesterkurzbeitrag
 module Indexes =
 
+    type WorkingIndexPair = {wNonInvertedIndex: Map<int,list<string>>;
+                      wInvertedIndex: Map<string,list<int>>}
 
-    let createIndexes documentItems =
+    type IndexPair = {nonInvertedIndex: Map<int,seq<string*int>>;
+                      invertedIndex: Map<string,seq<int*int>>}
 
-        let rec helper documentItems indexPair =
+    type IndexValue<'a> = {key:'a; frequency: int}
 
-            let searchDocument (document:TrecEntry) indexPair =
-         
-                let rec helper tokenizedText indexPair=
-
-                    let addEntry word recordId indexPair =
-
-                        let addIndex (index: Map<_,InvertedIndexOccurence>) key value =
-                            match index.TryFind(key) with
-                            | Some(occ) -> index.Remove(key).Add(key,occ.Add(value))
-                            | None -> index.Add(key,InvertedIndexOccurence([value]))
-
-                        printfn "Adding Index for Document: %i and Term: %s" recordId word 
-                        {
-                            nonInvertedIndex=(addIndex indexPair.nonInvertedIndex recordId word);
-                            invertedIndex=(addIndex indexPair.invertedIndex word recordId;)
-                        }
-
-                    match tokenizedText with
-                    | head::tail -> helper tail (addEntry head document.RecordId indexPair)
-                    | [] ->  indexPair
-
-                printfn "Searching Document: %i" document.RecordId 
-                helper document.TokenizedText indexPair
+    let rec addIndex (index: Map<_,_>) key value =
+        match index.TryFind(key) with
+        | Some(occ) -> index.Remove(key).Add(key,(value::occ))
+        | None -> index.Add(key,[value])
+    
+    let rec addEntry word recordId (workingIndexPair:WorkingIndexPair) =
+        {
+            wNonInvertedIndex=(addIndex workingIndexPair.wNonInvertedIndex recordId word);
+            wInvertedIndex=(addIndex workingIndexPair.wInvertedIndex word recordId;)
+        }   
+    
+    let rec searchDocumentHelper tokenizedText recordId workingIndexPair=
+        match tokenizedText with
+        | head::tail -> searchDocumentHelper tail recordId (addEntry head recordId workingIndexPair)
+        | [] ->  workingIndexPair
+       
+    let searchDocument (document:TrecEntry) workingIndexPair =
+        searchDocumentHelper document.TokenizedText document.RecordId workingIndexPair
+    
+    let rec createIndexesHelper documentItems workingIndexPair =
 
             match documentItems with
-            | head::tail -> helper tail (searchDocument head indexPair)
-            | [] -> indexPair
-        
-        helper documentItems {nonInvertedIndex=Map.empty; invertedIndex=Map.empty}
+            | head::tail -> createIndexesHelper tail (searchDocument head workingIndexPair)
+            | [] -> workingIndexPair
+
+    let finalizeIndex indexMap =
+        indexMap |> Map.map (fun key value ->
+            (Seq.ofList value) |> Seq.groupBy (fun elem ->
+                elem) |> Seq.map (fun (key,values) -> (key,Seq.length values)))
+
+    let rec createIndexes documentItems =
+         let workingIndexPair=createIndexesHelper documentItems {wNonInvertedIndex=Map.empty; wInvertedIndex=Map.empty}
+         {
+            nonInvertedIndex=finalizeIndex workingIndexPair.wNonInvertedIndex;
+            invertedIndex= finalizeIndex workingIndexPair.wInvertedIndex;
+         }
+
+   
