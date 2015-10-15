@@ -35,22 +35,26 @@ module Main =
              ]
         terms
 
-    let rec buildFrequencyMap documentItems acc =
+    let rec createIndexes documentItems acc =
+     
         
-        let rec addEntry word recordId (acc:Map<string,Occurency>) =
-            match acc.TryFind(word) with
-            | Some(occ) -> acc.Remove(word).Add(word,occ.Add(recordId))
-            | None -> acc.Add(word,Occurency([recordId]))
+        let rec addEntry word recordId (invertedIndex:Map<string,InvertedIndexOccurence>) =
 
-        let rec searchDocument (document:TrecEntry) (acc:Map<string,Occurency>) =
-            let rec helper tokenizedText (acc:Map<string,Occurency>)=
+            let addIndex (index: Map<_,InvertedIndexOccurence>) key value =
+                match index.TryFind(key) with
+                | Some(occ) -> index.Remove(key).Add(word,occ.Add(value))
+                | None -> index.Add(key,InvertedIndexOccurence([value]))
+            addIndex invertedIndex word recordId
+
+        let rec searchDocument (document:TrecEntry) (acc:Map<string,InvertedIndexOccurence>) =
+            let rec helper tokenizedText (acc:Map<string,InvertedIndexOccurence>)=
                 match tokenizedText with
                 | head::tail -> helper tail (addEntry head document.RecordId acc)
                 | [] ->  acc
             helper document.TokenizedText acc
 
         match documentItems with
-        | head::tail ->  buildFrequencyMap tail (searchDocument head acc)
+        | head::tail ->  createIndexes tail (searchDocument head acc)
         | [] -> acc
         
 
@@ -85,8 +89,8 @@ module Main =
             (Array.Parallel.map (fun doc ->
             TrecEntry(doc.RecordId,doc.Text,stemm(doc.Text))))) 
 
-    let collectFrequency (query: TrecEntry) (freqMap:Map<string,Occurency>) =
-        let rec helper (lst:List<string>) (freqMap:Map<string,Occurency>) (acc:List<Occurency>) =
+    let collectFrequency (query: TrecEntry) (freqMap:Map<string,InvertedIndexOccurence>) =
+        let rec helper (lst:List<string>) (freqMap:Map<string,InvertedIndexOccurence>) (acc:List<InvertedIndexOccurence>) =
             match lst with
             | head::tail -> 
                 match freqMap.TryFind(head) with
@@ -96,8 +100,8 @@ module Main =
         let unsorted=helper query.TokenizedText freqMap []
         unsorted |> List.sortBy (fun occr -> occr.Frequency)
 
-  //  let unitedIntersection (lst:List<Occurency>) =
-      //  let rec helper (lst:List<Occurency>) (acc:List<int>) =
+  //  let unitedIntersection (lst:List<InvertedIndexOccurence>) =
+      //  let rec helper (lst:List<InvertedIndexOccurence>) (acc:List<int>) =
        ////     | head::tail -> 
         //    intersect acc.Head acc.Tail head tail [] 
        //     | [] -> acc
@@ -107,7 +111,7 @@ module Main =
     let main argv = 
         let stopWatch = System.Diagnostics.Stopwatch.StartNew()
         let documentItems = loadTrecEntries "../../Resources/irg_collection.trec"
-        let frequencyMap = buildFrequencyMap documentItems Map.empty<string,Occurency>
+        let frequencyMap = buildFrequencyMap documentItems
         let queries = loadTrecEntries "../../Resources/irg_queries.trec"
         let freqs= collectFrequency queries.Head  frequencyMap
         let freqsAsList = freqs |> List.map (fun occr -> Set.toList occr.RefecencedDocIds)

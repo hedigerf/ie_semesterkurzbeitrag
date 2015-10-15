@@ -9,11 +9,11 @@ module TypeDomain =
         member this.OriginalText: string = originalText
         member this.TokenizedText: List<string> = tokenizedText
 
-    type Occurency(referencedDocIds) =
-        member this.RefecencedDocIds: Set<int> = Set.ofList (List.sort referencedDocIds) 
+    type InvertedIndexOccurence(referencedDocIds) =
+        member this.RefecencedDocIds = Set.ofList (List.sort referencedDocIds) 
         member this.Frequency = List.length referencedDocIds
         
-        member this.Add(referencedDocId) =
-            new Occurency(referencedDocId :: referencedDocIds)
+        member this.Add referencedDocId =
+            new InvertedIndexOccurence(referencedDocId :: referencedDocIds)
 
     
