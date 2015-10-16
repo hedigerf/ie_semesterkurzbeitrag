@@ -6,10 +6,15 @@ module Indexes =
 
     type IndexValue<'a> = {key:'a; frequency: int}
 
-    type IndexPair = {nonInvertedIndex: Map<int,seq<IndexValue<string>>>;
+    type NonInvertedIndex = Map<int,seq<IndexValue<string>>>
+
+    type IndexPair = {nonInvertedIndex: NonInvertedIndex;
                       invertedIndex: Map<string,seq<IndexValue<int>>>}
 
-    type Idf = Map<string,double>
+    type IdfMap = Map<string,double>
+
+    //term,Map<docId,weight>
+    type TermWeights = Map<string,Map<int,double>>
 
     let rec addIndex (index: Map<_,_>) key value =
         match index.TryFind(key) with
@@ -58,16 +63,29 @@ module Indexes =
         invertedIndex |> Map.map (fun indexKey indexValues ->
             (log (double(1+documentCount)/double(1+(Seq.length indexValues)))))
     
-    let calculateTermWeight invertedIndex (idf:Idf) =
+    let calculateTermWeight invertedIndex (idf:IdfMap) =
+
         let findIdfValue indexKey =
             match idf.TryFind(indexKey) with
             | Some(idfValue) -> idfValue
             | None -> 0.0
 
         invertedIndex |> Map.map (fun indexKey indexValues ->
-            indexValues |> Seq.map (fun indexValue ->
-                (indexValue.key,(double(indexValue.frequency) * (findIdfValue indexKey)))))
-    //let calculateDnorm nonInvertedIndex 
+            Map.ofSeq (indexValues |> Seq.map (fun indexValue ->
+                (indexValue.key,(double(indexValue.frequency) * (findIdfValue indexKey))))))
+   
+    let calculateDnorm (nonInvertedIndex:NonInvertedIndex) (termWeights:TermWeights) =
+
+        let findTermWeight term docId =
+            match termWeights.TryFind(term) with
+            | Some(weightPerDocs) -> match weightPerDocs.TryFind(docId) with
+                                     | Some(weight) -> weight
+                                     | None -> 1.0
+            | None -> 1.0
+
+        nonInvertedIndex |> Map.map (fun indexKey indexValues ->
+            (indexValues |> Seq.fold (fun acc indexValue ->
+                 (findTermWeight indexValue.key indexKey)+acc ) 0.0))
 
    
   
