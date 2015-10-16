@@ -9,6 +9,8 @@ module Indexes =
     type IndexPair = {nonInvertedIndex: Map<int,seq<IndexValue<string>>>;
                       invertedIndex: Map<string,seq<IndexValue<int>>>}
 
+    type Idf = Map<string,double>
+
     let rec addIndex (index: Map<_,_>) key value =
         match index.TryFind(key) with
         | Some(occ) -> index.Remove(key).Add(key,(value::occ))
@@ -52,7 +54,20 @@ module Indexes =
             invertedIndex= finalizeIndex workingIndexPair.wInvertedIndex;
          }
 
-    let createIdf invertedIndex documentCount =
-        invertedIndex |> Map.map (fun indexKey indexValue -> (log (double(documentCount)/double((Seq.length indexValue)))))
+    let calculateIdf invertedIndex documentCount =
+        invertedIndex |> Map.map (fun indexKey indexValues ->
+            (log (double(1+documentCount)/double(1+(Seq.length indexValues)))))
+    
+    let calculateTermWeight invertedIndex (idf:Idf) =
+        let findIdfValue indexKey =
+            match idf.TryFind(indexKey) with
+            | Some(idfValue) -> idfValue
+            | None -> 0.0
+
+        invertedIndex |> Map.map (fun indexKey indexValues ->
+            indexValues |> Seq.map (fun indexValue ->
+                (indexValue.key,(double(indexValue.frequency) * (findIdfValue indexKey)))))
+    //let calculateDnorm nonInvertedIndex 
 
    
+  
