@@ -8,8 +8,10 @@ module Indexes =
 
     type NonInvertedIndex = Map<int,seq<IndexValue<string>>>
 
+    type InvertedIndex = Map<string,seq<IndexValue<int>>>
+
     type IndexPair = {nonInvertedIndex: NonInvertedIndex;
-                      invertedIndex: Map<string,seq<IndexValue<int>>>}
+                      invertedIndex: InvertedIndex}
 
     type IdfMap = Map<string,double>
 
@@ -84,7 +86,7 @@ module Indexes =
             | None -> 1.0
 
         nonInvertedIndex |> Map.map (fun indexKey indexValues ->
-            (indexValues |> Seq.fold (fun acc indexValue ->
+            sqrt(indexValues |> Seq.fold (fun acc indexValue ->
                  (findTermWeight indexValue.key indexKey)+acc ) 0.0))
 
    
