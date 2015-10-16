@@ -1,15 +1,15 @@
 ﻿<Properties StartupItem="Semesterkurzbeitrag.fsproj" GitUserInfo="UsingGIT">
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="Program.fs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="TypeDomain.fs">
     <Files>
-      <File FileName="TypeDomain.fs" Line="30" Column="5" />
-      <File FileName="Program.fs" Line="13" Column="17" />
-      <File FileName="Indexes.fs" Line="3" Column="5" />
+      <File FileName="TypeDomain.fs" Line="17" Column="57" />
+      <File FileName="Program.fs" Line="110" Column="13" />
+      <File FileName="Indexes.fs" Line="16" Column="58" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
     <BreakpointStore>
-      <Breakpoint file="/home/hedigerf/GitReps/Semesterkurzbeitrag/Program.fs" line="116" column="1" />
+      <Breakpoint file="/home/hedigerf/GitReps/Semesterkurzbeitrag/Program.fs" line="117" column="1" />
     </BreakpointStore>
   </MonoDevelop.Ide.DebuggingService.Breakpoints>
   <MonoDevelop.Ide.DebuggingService.PinnedWatches />

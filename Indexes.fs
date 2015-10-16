@@ -4,10 +4,10 @@ module Indexes =
     type WorkingIndexPair = {wNonInvertedIndex: Map<int,list<string>>;
                       wInvertedIndex: Map<string,list<int>>}
 
-    type IndexPair = {nonInvertedIndex: Map<int,seq<string*int>>;
-                      invertedIndex: Map<string,seq<int*int>>}
-
     type IndexValue<'a> = {key:'a; frequency: int}
+
+    type IndexPair = {nonInvertedIndex: Map<int,seq<IndexValue<string>>>;
+                      invertedIndex: Map<string,seq<IndexValue<int>>>}
 
     let rec addIndex (index: Map<_,_>) key value =
         match index.TryFind(key) with
@@ -15,6 +15,7 @@ module Indexes =
         | None -> index.Add(key,[value])
     
     let rec addEntry word recordId (workingIndexPair:WorkingIndexPair) =
+        printfn "Add word %s in %i to index" word recordId
         {
             wNonInvertedIndex=(addIndex workingIndexPair.wNonInvertedIndex recordId word);
             wInvertedIndex=(addIndex workingIndexPair.wInvertedIndex word recordId;)
@@ -37,13 +38,21 @@ module Indexes =
     let finalizeIndex indexMap =
         indexMap |> Map.map (fun key value ->
             (Seq.ofList value) |> Seq.groupBy (fun elem ->
-                elem) |> Seq.map (fun (key,values) -> (key,Seq.length values)))
+                elem) |> Seq.map (fun (key,values) -> 
+                    {
+                        key=key;
+                        frequency=(Seq.length values);
+                    }))
 
-    let rec createIndexes documentItems =
+    //creates the inverted and non inverted index
+    let createIndexes documentItems =
          let workingIndexPair=createIndexesHelper documentItems {wNonInvertedIndex=Map.empty; wInvertedIndex=Map.empty}
          {
             nonInvertedIndex=finalizeIndex workingIndexPair.wNonInvertedIndex;
             invertedIndex= finalizeIndex workingIndexPair.wInvertedIndex;
          }
+
+    let createIdf invertedIndex documentCount =
+        invertedIndex |> Map.map (fun indexKey indexValue -> (log (double(documentCount)/double((Seq.length indexValue)))))
 
    

@@ -88,6 +88,7 @@ module Main =
         let stopWatch = System.Diagnostics.Stopwatch.StartNew()
         let documentItems = loadTrecEntries "../../Resources/irg_collection.trec"
         let frequencyMap = (Indexes.createIndexes documentItems).invertedIndex
+        let idf = Indexes.createIdf frequencyMap documentItems.Length
         let queries = loadTrecEntries "../../Resources/irg_queries.trec"
 //        let freqs= collectFrequency queries.Head  frequencyMap
 //        let freqsAsList = freqs |> List.map (fun occr -> Set.toList occr.RefecencedDocIds)
