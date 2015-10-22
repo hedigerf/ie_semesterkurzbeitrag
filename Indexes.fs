@@ -15,6 +15,8 @@ module Indexes =
 
     type IdfMap = Map<string,double>
 
+    type DNormMap = Map<int,double>
+
     //term,Map<docId,weight>
     type TermWeights = Map<string,Map<int,double>>
 
@@ -75,7 +77,7 @@ module Indexes =
         invertedIndex |> Map.map (fun indexKey indexValues ->
             Map.ofSeq (indexValues |> Seq.map (fun indexValue ->
                 (indexValue.key,(double(indexValue.frequency) * (findIdfValue indexKey))))))
-   
+
     let calculateDnorm (nonInvertedIndex:NonInvertedIndex) (termWeights:TermWeights) =
 
         let findTermWeight term docId =
@@ -86,8 +88,23 @@ module Indexes =
             | None -> 1.0
 
         nonInvertedIndex |> Map.map (fun indexKey indexValues ->
-            sqrt(indexValues |> Seq.fold (fun acc indexValue ->
-                 (findTermWeight indexValue.key indexKey)+acc ) 0.0))
+            sqrt (pown ((indexValues |> Seq.fold (fun acc indexValue ->
+                 (findTermWeight indexValue.key indexKey)+acc ) 0.0)) 2))
 
-   
+    let processQueries (queries:array<TrecEntry>) (queriesIndex:NonInvertedIndex) documentCount (idfMap:IdfMap)=
+        queries |> Array.fold (fun acc query ->
+            (query.TokenizedText |> List.fold (fun acc term ->
+                let idfValue = match idfMap.TryFind term with
+                               | Some(idfValue) -> idfValue 
+                               | None -> log (double(1 + documentCount))
+                let frequency = match queriesIndex.TryFind query.RecordId with
+                                | Some(indexValue) -> (indexValue |> Seq.find (fun indexTerm -> term = indexTerm.key)).frequency
+                                | None -> 0
+                let interimResult = idfValue * (double frequency)     
+                acc + interimResult) 0.0)) 0.0
+
+
   
+
+ 
+    

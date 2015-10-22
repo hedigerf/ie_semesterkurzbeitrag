@@ -90,8 +90,10 @@ module Main =
         let indexPair = (Indexes.createIndexes documentItems)
         let idf = Indexes.calculateIdf indexPair.invertedIndex documentItems.Length
         let weight = Indexes.calculateTermWeight indexPair.invertedIndex idf
-        let dNorm = Indexes.calculateDnorm indexPair.nonInvertedIndex weight
+        let dNorm  = Indexes.calculateDnorm indexPair.nonInvertedIndex weight
         let queries = loadTrecEntries "../../Resources/irg_queries.trec"
+        let queriesIndexPair = (Indexes.createIndexes queries)
+
 //        let freqs= collectFrequency queries.Head  frequencyMap
 //        let freqsAsList = freqs |> List.map (fun occr -> Set.toList occr.RefecencedDocIds)
 //        //finds only documents which have all of the desired words contained.
