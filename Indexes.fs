@@ -96,7 +96,7 @@ module Indexes =
     let calculateQnorm (queries:array<TrecEntry>) (queriesIndex:NonInvertedIndex) documentCount (idfMap:IdfMap) (inverseIndexDocs: InvertedIndex)=
         //not sure if map is the correct function here, I think fold is need for creating the accumulator
         Map.ofArray (queries |> Array.map (fun query ->
-            (query.RecordId,sqrt(query.TokenizedText |> List.fold (fun acc queryTerm ->
+            (query.RecordId,(query.TokenizedText |> List.fold (fun (qNormVal,acc:Accumulator) queryTerm ->
                 let idfValue = match idfMap.TryFind queryTerm with
                                | Some(idfValue) -> idfValue 
                                | None -> log (double(1 + documentCount))
@@ -109,9 +109,9 @@ module Indexes =
                                         | Some(indexValueSeq) ->
                                             indexValueSeq |> Seq.fold (fun tempAcc indexValue ->
                                                 let a = idfValue * (double indexValue.frequency)
-                                                tempAcc.Add(indexValue.key,(a*b))) Map.empty
+                                                tempAcc.Add(indexValue.key,(a*b))) acc
                                         | None -> Map.empty
-                acc + (pown b 2)) 0.0))))
+                ((qNormVal + (pown b 2))),accumulator) (0.0,Map.empty)))))
 
 
   
