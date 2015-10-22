@@ -17,6 +17,8 @@ module Indexes =
 
     type DNormMap = Map<int,double>
 
+    type Accumulator = Map<int,double>
+
     //term,Map<docId,weight>
     type TermWeights = Map<string,Map<int,double>>
 
@@ -91,17 +93,24 @@ module Indexes =
             sqrt (pown ((indexValues |> Seq.fold (fun acc indexValue ->
                  (findTermWeight indexValue.key indexKey)+acc ) 0.0)) 2))
 
-    let processQueries (queries:array<TrecEntry>) (queriesIndex:NonInvertedIndex) documentCount (idfMap:IdfMap)=
-        queries |> Array.fold (fun acc query ->
-            (query.TokenizedText |> List.fold (fun acc term ->
-                let idfValue = match idfMap.TryFind term with
+    let calculateQnorm (queries:array<TrecEntry>) (queriesIndex:NonInvertedIndex) documentCount (idfMap:IdfMap) (inverseIndexDocs: InvertedIndex)=
+            let mutuable accumulator: Accumulator = Map.empty
+            Map.ofArray (queries |> Array.Parallel.map (fun query ->
+            (query.RecordId,sqrt(query.TokenizedText |> List.fold (fun acc queryTerm ->
+                let idfValue = match idfMap.TryFind queryTerm with
                                | Some(idfValue) -> idfValue 
                                | None -> log (double(1 + documentCount))
                 let frequency = match queriesIndex.TryFind query.RecordId with
-                                | Some(indexValue) -> (indexValue |> Seq.find (fun indexTerm -> term = indexTerm.key)).frequency
+                                | Some(indexValue) -> (indexValue |> Seq.find (fun indexTerm -> queryTerm = indexTerm.key)).frequency
                                 | None -> 0
-                let interimResult = idfValue * (double frequency)     
-                acc + interimResult) 0.0)) 0.0
+                let b = idfValue * (double frequency)
+                let tempAccuValue = match inverseIndexDocs.TryFind queryTerm with
+                                    | Some(indexValueSeq) ->
+                                        indexValueSeq |> Seq.fold (fun acc indexValue ->
+                                            let a = idfValue * (double indexValue.frequency)
+                                            acc + a) 0.0
+                                    | None -> 0.0
+                acc + (pown b 2)) 0.0))))
 
 
   
