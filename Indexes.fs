@@ -94,8 +94,8 @@ module Indexes =
                  (findTermWeight indexValue.key indexKey)+acc ) 0.0)) 2))
 
     let calculateQnorm (queries:array<TrecEntry>) (queriesIndex:NonInvertedIndex) documentCount (idfMap:IdfMap) (inverseIndexDocs: InvertedIndex)=
-            let mutuable accumulator: Accumulator = Map.empty
-            Map.ofArray (queries |> Array.Parallel.map (fun query ->
+        //not sure if map is the correct function here, I think fold is need for creating the accumulator
+        Map.ofArray (queries |> Array.map (fun query ->
             (query.RecordId,sqrt(query.TokenizedText |> List.fold (fun acc queryTerm ->
                 let idfValue = match idfMap.TryFind queryTerm with
                                | Some(idfValue) -> idfValue 
@@ -104,12 +104,13 @@ module Indexes =
                                 | Some(indexValue) -> (indexValue |> Seq.find (fun indexTerm -> queryTerm = indexTerm.key)).frequency
                                 | None -> 0
                 let b = idfValue * (double frequency)
-                let tempAccuValue = match inverseIndexDocs.TryFind queryTerm with
-                                    | Some(indexValueSeq) ->
-                                        indexValueSeq |> Seq.fold (fun acc indexValue ->
-                                            let a = idfValue * (double indexValue.frequency)
-                                            acc + a) 0.0
-                                    | None -> 0.0
+                //pass intermediate accu as starting point of fold
+                let accumulator:Accumulator = match inverseIndexDocs.TryFind queryTerm with
+                                        | Some(indexValueSeq) ->
+                                            indexValueSeq |> Seq.fold (fun tempAcc indexValue ->
+                                                let a = idfValue * (double indexValue.frequency)
+                                                tempAcc.Add(indexValue.key,(a*b))) Map.empty
+                                        | None -> Map.empty
                 acc + (pown b 2)) 0.0))))
 
 
