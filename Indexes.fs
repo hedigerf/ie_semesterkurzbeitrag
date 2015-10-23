@@ -1,4 +1,5 @@
 ﻿namespace Semesterkurzbeitrag
+open System.IO
 module Indexes =
 
     type WorkingIndexPair = {wNonInvertedIndex: Map<int,list<string>>;
@@ -39,7 +40,7 @@ module Indexes =
 
     ///adds an entry to both indexes
     let rec addEntry word recordId (workingIndexPair:WorkingIndexPair) =
-        printfn "Add word %s in %i to index" word recordId
+        //printfn "Add word %s in %i to index" word recordId
         {
             wNonInvertedIndex=(addIndex workingIndexPair.wNonInvertedIndex recordId word concat create);
             wInvertedIndex=(addIndex workingIndexPair.wInvertedIndex word recordId concat create;)
@@ -118,7 +119,7 @@ module Indexes =
             let newAccumulator : Accumulator = match inverseIndexDocs.TryFind queryTerm with
                                                 | Some(indexValueSeq) ->
                                                     indexValueSeq |> Seq.fold (fun tempAcc indexValue ->
-                                                        printfn "Processing queryId: %i queryTerm: %s docId: %i" query.RecordId queryTerm indexValue.key
+                                                        //printfn "Processing queryId: %i queryTerm: %s docId: %i" query.RecordId queryTerm indexValue.key
                                                         let a = idfValue * (double indexValue.frequency)
                                                         addIndex tempAcc indexValue.key (a*b) (fun x y -> x + y) (fun x -> x)) acc
                                                 | None -> acc
@@ -137,22 +138,28 @@ module Indexes =
             let searchResult=documents |> List.map (fun doc ->
                 let rsv = match accu.TryFind doc.RecordId with
                           | None -> //printfn "No accu value found for DocumentId: %i" doc.RecordId
-                                    (999.9,doc.RecordId,query.RecordId)
+                                    (999.9,doc.RecordId,query.RecordId,0.0,0.0,0.0)
                           | Some(accuValue)-> match dNorm.TryFind doc.RecordId with
                                               | None -> //printfn "No dNorm value found for DocumentId: %i" doc.RecordId
-                                                        (999.9,doc.RecordId,query.RecordId)
+                                                        (999.9,doc.RecordId,query.RecordId,accuValue,0.0,0.0)
                                               | Some(dNormValue) -> match qNorm.TryFind query.RecordId with
                                                                     | None -> //printfn "No dNorm value found for queryId: %i" query.RecordId
-                                                                              (999.9,doc.RecordId,query.RecordId)
+                                                                              (999.9,doc.RecordId,query.RecordId,accuValue,dNormValue,0.0)
                                                                     | Some(qNormValue) ->
                                                                         let rsv = accuValue/(dNormValue * qNormValue) 
                                                                         //printfn "QueryId: %i DocumentId: %i RSV: %f " query.RecordId doc.RecordId rsv
-                                                                        (rsv,doc.RecordId,query.RecordId)
+                                                                        (rsv,doc.RecordId,query.RecordId,accuValue,dNormValue,qNormValue)
                 rsv                                                          
                 )
-            let sorted=searchResult |> List.sortBy (fun (rsv,documentId,queryId) -> rsv) 
-            let firstThousand = sorted |> List.take 1000
-            firstThousand |> List.iter (fun (rsv,documentId,queryId) -> printfn "QueryId: %i DocumentId: %i RSV: %f " queryId documentId rsv)
+            let sorted=searchResult |> List.sortBy (fun (rsv,documentId,queryId,accuValue,dNormValue,qNormValue) -> rsv) 
+            let firstThousand = (Seq.ofList sorted) |> Seq.take 1000
+            let sb = (new System.Text.StringBuilder()).Append("").Append(query.RecordId).Append("_query_rsv_calc.log")
+            let stream = new StreamWriter(sb.ToString(), false)
+            stream.WriteLine("This line overwrites file contents!")
+            firstThousand |> Seq.iter (fun (rsv,documentId,queryId,accuValue,dNormValue,qNormValue) ->
+                stream.WriteLine("QueryId: {0}, DocumentID: {1}, RSV: {2}, Accu: {3}, dNorm: {4}, qNorm {5}",queryId,documentId,rsv,accuValue,dNormValue,qNormValue)
+                printfn "QueryId: %i DocumentId: %i RSV: %f " queryId documentId rsv)
+            stream.Close
             firstThousand)
 
 
