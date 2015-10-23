@@ -94,7 +94,7 @@ module Main =
         let dNorm  = Indexes.calculateDnorm indexPair.nonInvertedIndex weight
         let queries = loadTrecEntries "../../Resources/irg_queries.trec"
         let queriesIndexPair = (Indexes.createIndexes queries)
-        let qNorm = Indexes.calculateQnorm queries queriesIndexPair.nonInvertedIndex documentCount idf
+        let qNorm = Indexes.calculateQnorm queries queriesIndexPair.nonInvertedIndex documentCount idf queriesIndexPair.invertedIndex
         stopWatch.Stop()
         printfn "%f" stopWatch.Elapsed.TotalMilliseconds
         Threading.Thread.Sleep(4000)
