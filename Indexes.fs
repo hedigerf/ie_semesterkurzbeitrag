@@ -19,19 +19,28 @@ module Indexes =
 
     type Accumulator = Map<int,double>
 
-    //term,Map<docId,weight>
+    ///term,Map<docId,weight>
     type TermWeights = Map<string,Map<int,double>>
 
-    let rec addIndex (index: Map<_,_>) key value =
+    ///coded for performance reasons
+    let concat value occ =
+        value::occ
+    ///coded for performance reasons
+    let create value=
+        [value]
+
+    ///ads an index entry to an existing index
+    let rec addIndex (index: Map<_,_>) key value applyToExisting createNew =
         match index.TryFind(key) with
-        | Some(occ) -> index.Remove(key).Add(key,(value::occ))
-        | None -> index.Add(key,[value])
-    
+        | Some(occ) -> index.Remove(key).Add(key,(applyToExisting value occ))
+        | None -> index.Add(key,createNew value)
+
+    ///adds an entry to both indexes
     let rec addEntry word recordId (workingIndexPair:WorkingIndexPair) =
         printfn "Add word %s in %i to index" word recordId
         {
-            wNonInvertedIndex=(addIndex workingIndexPair.wNonInvertedIndex recordId word);
-            wInvertedIndex=(addIndex workingIndexPair.wInvertedIndex word recordId;)
+            wNonInvertedIndex=(addIndex workingIndexPair.wNonInvertedIndex recordId word concat create);
+            wInvertedIndex=(addIndex workingIndexPair.wInvertedIndex word recordId concat create;)
         }   
     
     let rec searchDocumentHelper tokenizedText recordId workingIndexPair=
@@ -93,10 +102,11 @@ module Indexes =
             sqrt (pown ((indexValues |> Seq.fold (fun acc indexValue ->
                  (findTermWeight indexValue.key indexKey)+acc ) 0.0)) 2))
 
-    let calculateQnorm (queries:array<TrecEntry>) (queriesIndex:NonInvertedIndex) documentCount (idfMap:IdfMap) (inverseIndexDocs: InvertedIndex)=
+    let calculateQnorm (queries:list<TrecEntry>) (queriesIndex:NonInvertedIndex) documentCount (idfMap:IdfMap) (inverseIndexDocs: InvertedIndex)=
         //not sure if map is the correct function here, I think fold is need for creating the accumulator
-        Map.ofArray (queries |> Array.map (fun query ->
-            (query.RecordId,(query.TokenizedText |> List.fold (fun (qNormVal,acc:Accumulator) queryTerm ->
+        Map.ofList (queries |> List.map (fun query ->
+            //sqrt not applied to qNormVal remember
+            (query.RecordId,(query.TokenizedText |> List.fold (fun (qNormVal,(acc:Accumulator)) queryTerm ->
                 let idfValue = match idfMap.TryFind queryTerm with
                                | Some(idfValue) -> idfValue 
                                | None -> log (double(1 + documentCount))
@@ -105,13 +115,13 @@ module Indexes =
                                 | None -> 0
                 let b = idfValue * (double frequency)
                 //pass intermediate accu as starting point of fold
-                let accumulator:Accumulator = match inverseIndexDocs.TryFind queryTerm with
-                                        | Some(indexValueSeq) ->
-                                            indexValueSeq |> Seq.fold (fun tempAcc indexValue ->
-                                                let a = idfValue * (double indexValue.frequency)
-                                                tempAcc.Add(indexValue.key,(a*b))) acc
-                                        | None -> Map.empty
-                ((qNormVal + (pown b 2))),accumulator) (0.0,Map.empty)))))
+                let newAccumulator : Accumulator = match inverseIndexDocs.TryFind queryTerm with
+                                                    | Some(indexValueSeq) ->
+                                                        indexValueSeq |> Seq.fold (fun tempAcc indexValue ->
+                                                            let a = idfValue * (double indexValue.frequency)
+                                                            addIndex tempAcc indexValue.key (a*b) (fun x y -> x + y) (fun x -> x)) acc
+                                                    | None -> acc
+                ((qNormVal + (pown b 2))),newAccumulator) (0.0,Map.empty)))))
 
 
   
