@@ -77,34 +77,31 @@ module Indexes =
             invertedIndex= finalizeIndex workingIndexPair.wInvertedIndex;
          }
 
-    let calculateIdf invertedIndex documentCount =
-        invertedIndex |> Map.map (fun indexKey indexValues ->
-            (log (double(1+documentCount)/double(1+(Seq.length indexValues)))))
-    
-    let calculateTermWeight invertedIndex (idf:IdfMap) =
+    let addIfNotExists (idfMap:IdfMap) idfKey idfValue =
+        if idfMap.ContainsKey idfKey then
+            idfMap
+        else
+            idfMap.Add(idfKey,idfValue)
+                
+    let calculateDnorm (nonInvertedIndex:NonInvertedIndex) (invertedIndex:InvertedIndex) documentCount =
+        let asSeq = (Map.toSeq nonInvertedIndex)
+        let r=asSeq |> Seq.fold (fun (idf:IdfMap,dNorm:DNormMap) (docId,words) ->
+            let (idf,(dNormDoc:double)) = (words |> Seq.fold (fun (tempIdf:IdfMap,dNormDoc) word ->
+                let documentFrequency = match invertedIndex.TryFind word.key with //number of documents which contain the term
+                                        | Some(seq) -> Seq.length seq
+                                        | None -> 0 
+                let idfValue = log( ((double(1+documentCount)) / (double(1 + documentFrequency))))
+                let a = idfValue * (double word.frequency) 
+                let aHigh2 = pown a 2
+                let newIdfMap = addIfNotExists tempIdf word.key (double idfValue)
+                (newIdfMap,dNormDoc+ aHigh2)) (idf,0.0) )
+            let newDNorm=dNorm.Add (docId,(sqrt dNormDoc))
+            printfn "dNorm processed docId: %i" docId
+            (idf,newDNorm))
+                (Map.empty,Map.empty)
+        r
 
-        let findIdfValue indexKey =
-            match idf.TryFind(indexKey) with
-            | Some(idfValue) -> idfValue
-            | None -> 0.0
-
-        invertedIndex |> Map.map (fun indexKey indexValues ->
-            Map.ofSeq (indexValues |> Seq.map (fun indexValue ->
-                (indexValue.key,(double(indexValue.frequency) * (findIdfValue indexKey))))))
-
-    let calculateDnorm (nonInvertedIndex:NonInvertedIndex) (termWeights:TermWeights) =
-
-        let findTermWeight term docId =
-            match termWeights.TryFind(term) with
-            | Some(weightPerDocs) -> match weightPerDocs.TryFind(docId) with
-                                     | Some(weight) -> weight
-                                     | None -> 1.0
-            | None -> 1.0
-
-        nonInvertedIndex |> Map.map (fun indexKey indexValues ->
-            sqrt (pown ((indexValues |> Seq.fold (fun acc indexValue ->
-                 (findTermWeight indexValue.key indexKey)+acc ) 0.0)) 2))
-
+     
     ///calculate Qnorm for one query and extend the Accumulator
     let calculateQnormQuery (query:TrecEntry) (queriesIndex:NonInvertedIndex) documentCount (idfMap:IdfMap) (inverseIndexDocs: InvertedIndex) (startAcc:Accumulator) =
         (query.TokenizedText |> List.fold (fun (qNormVal,(acc:Accumulator)) queryTerm ->
