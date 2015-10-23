@@ -118,6 +118,7 @@ module Indexes =
             let newAccumulator : Accumulator = match inverseIndexDocs.TryFind queryTerm with
                                                 | Some(indexValueSeq) ->
                                                     indexValueSeq |> Seq.fold (fun tempAcc indexValue ->
+                                                        printfn "Processing queryId: %i queryTerm: %s docId: %i" query.RecordId queryTerm indexValue.key
                                                         let a = idfValue * (double indexValue.frequency)
                                                         addIndex tempAcc indexValue.key (a*b) (fun x y -> x + y) (fun x -> x)) acc
                                                 | None -> acc
@@ -128,6 +129,27 @@ module Indexes =
         (queries |> List.fold (fun ((qNorm:QNormMap),(accumulator:Accumulator)) query ->
             let (qNormQuery,acc:Accumulator) = calculateQnormQuery query queriesIndex documentCount idfMap inverseIndexDocs accumulator 
             (qNorm.Add(query.RecordId,(sqrt qNormQuery)),acc))(Map.empty,Map.empty))
+
+
+
+    let calculateRsv (queries:list<TrecEntry>) (documents:list<TrecEntry>) (accu:Accumulator) (dNorm:DNormMap) (qNorm:QNormMap) =
+        queries |> List.map (fun query ->
+            documents |> List.map (fun doc ->
+                let rsv = match accu.TryFind doc.RecordId with
+                          | None -> printfn "No accu value found for DocumentId: %i" doc.RecordId
+                                    999999.9
+                          | Some(accuValue)-> match dNorm.TryFind doc.RecordId with
+                                              | None -> printfn "No dNorm value found for DocumentId: %i" doc.RecordId
+                                                        999999.9
+                                              | Some(dNormValue) -> match qNorm.TryFind query.RecordId with
+                                                                    | None -> printfn "No dNorm value found for queryId: %i" query.RecordId
+                                                                              999999.9
+                                                                    | Some(qNormValue) ->
+                                                                        let rsv = accuValue/(dNormValue * qNormValue) 
+                                                                        printfn "QueryId: %i DocumentId: %i RSV: %f " query.RecordId doc.RecordId rsv
+                                                                        rsv
+                rsv                                                          
+                ) )
 
 
   
