@@ -92,8 +92,8 @@ module Main =
         let (idf:IdfMap,dNorm:DNormMap)  = Indexes.calculateDnorm indexPair.nonInvertedIndex indexPair.invertedIndex documentCount
         let queries = loadTrecEntries "../../Resources/irg_queries.trec"
         let queriesIndexPair = (Indexes.createIndexes queries)
-        let (qNorm,accumulator) = Indexes.calculateQnorm queries queriesIndexPair.nonInvertedIndex documentCount idf indexPair.invertedIndex
-        let rsv = Indexes.calculateRsv queries documentItems accumulator dNorm qNorm 
+        let queryProcessingList = Indexes.createQueryProcessingList queries queriesIndexPair.nonInvertedIndex documentCount idf indexPair.invertedIndex
+        let rsv = Indexes.calculateRsv queryProcessingList documentItems dNorm
         stopWatch.Stop()
         printfn "%f" stopWatch.Elapsed.TotalMilliseconds
         Threading.Thread.Sleep(4000)
