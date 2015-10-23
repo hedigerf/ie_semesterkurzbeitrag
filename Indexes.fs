@@ -134,22 +134,26 @@ module Indexes =
 
     let calculateRsv (queries:list<TrecEntry>) (documents:list<TrecEntry>) (accu:Accumulator) (dNorm:DNormMap) (qNorm:QNormMap) =
         queries |> List.map (fun query ->
-            documents |> List.map (fun doc ->
+            let searchResult=documents |> List.map (fun doc ->
                 let rsv = match accu.TryFind doc.RecordId with
-                          | None -> printfn "No accu value found for DocumentId: %i" doc.RecordId
-                                    999999.9
+                          | None -> //printfn "No accu value found for DocumentId: %i" doc.RecordId
+                                    (999.9,doc.RecordId,query.RecordId)
                           | Some(accuValue)-> match dNorm.TryFind doc.RecordId with
-                                              | None -> printfn "No dNorm value found for DocumentId: %i" doc.RecordId
-                                                        999999.9
+                                              | None -> //printfn "No dNorm value found for DocumentId: %i" doc.RecordId
+                                                        (999.9,doc.RecordId,query.RecordId)
                                               | Some(dNormValue) -> match qNorm.TryFind query.RecordId with
-                                                                    | None -> printfn "No dNorm value found for queryId: %i" query.RecordId
-                                                                              999999.9
+                                                                    | None -> //printfn "No dNorm value found for queryId: %i" query.RecordId
+                                                                              (999.9,doc.RecordId,query.RecordId)
                                                                     | Some(qNormValue) ->
                                                                         let rsv = accuValue/(dNormValue * qNormValue) 
-                                                                        printfn "QueryId: %i DocumentId: %i RSV: %f " query.RecordId doc.RecordId rsv
-                                                                        rsv
+                                                                        //printfn "QueryId: %i DocumentId: %i RSV: %f " query.RecordId doc.RecordId rsv
+                                                                        (rsv,doc.RecordId,query.RecordId)
                 rsv                                                          
-                ) )
+                )
+            let sorted=searchResult |> List.sortBy (fun (rsv,documentId,queryId) -> rsv) 
+            let firstThousand = sorted |> List.take 1000
+            firstThousand |> List.iter (fun (rsv,documentId,queryId) -> printfn "QueryId: %i DocumentId: %i RSV: %f " queryId documentId rsv)
+            firstThousand)
 
 
   
