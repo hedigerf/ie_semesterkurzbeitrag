@@ -82,7 +82,8 @@ module Indexes =
             idfMap
         else
             idfMap.Add(idfKey,idfValue)
-                
+
+    ///calculate dNorm and the idf            
     let calculateDnorm (nonInvertedIndex:NonInvertedIndex) (invertedIndex:InvertedIndex) documentCount =
         let asSeq = (Map.toSeq nonInvertedIndex)
         let r=asSeq |> Seq.fold (fun (idf:IdfMap,dNorm:DNormMap) (docId,words) ->
@@ -102,34 +103,38 @@ module Indexes =
         r
 
      
-    ///calculate Qnorm for one query and extend the Accumulator
-    let calculateQnormQuery (query:TrecEntry) (queriesIndex:NonInvertedIndex) documentCount (idfMap:IdfMap) (inverseIndexDocs: InvertedIndex) (startAcc:Accumulator) =
-        (query.TokenizedText |> List.fold (fun (qNormVal,(acc:Accumulator)) queryTerm ->
-            let idfValue = match idfMap.TryFind queryTerm with
-                           | Some(idfValue) -> idfValue 
-                           | None -> log (double(1 + documentCount))
-            let frequency = match queriesIndex.TryFind query.RecordId with
-                            | Some(indexValue) -> (indexValue |> Seq.find (fun indexTerm -> queryTerm = indexTerm.key)).frequency
-                            | None -> 0
-            let b = idfValue * (double frequency)
-            //pass intermediate accu as starting point of fold
-            let newAccumulator : Accumulator = match inverseIndexDocs.TryFind queryTerm with
-                                                | Some(indexValueSeq) ->
-                                                    indexValueSeq |> Seq.fold (fun tempAcc indexValue ->
-                                                        //printfn "Processing queryId: %i queryTerm: %s docId: %i" query.RecordId queryTerm indexValue.key
-                                                        let a = idfValue * (double indexValue.frequency)
-                                                        addIndex tempAcc indexValue.key (a*b) (fun x y -> x + y) (fun x -> x)) acc
-                                                | None -> acc
-            ((qNormVal + (pown b 2))),newAccumulator) (0.0,startAcc))
-
     /// calculateQnorm and retuns the QnormMap and an Accumulator 
-    let createQueryProcessingList (queries:list<TrecEntry>) (queriesIndex:NonInvertedIndex) documentCount (idfMap:IdfMap) (inverseIndexDocs: InvertedIndex)=
+    let createQueryProcessingList (queries:list<TrecEntry>) (queriesIndex:NonInvertedIndex) documentCount (idfMap:IdfMap) (inverseIndexDocs: InvertedIndex) =
+
+        ///calculate Qnorm for one query and generate the accumulator
+        let calculateQnormQuery (query:TrecEntry) (queriesIndex:NonInvertedIndex) documentCount (idfMap:IdfMap) (inverseIndexDocs: InvertedIndex) =
+            (query.TokenizedText |> List.fold (fun (qNormVal,(acc:Accumulator)) queryTerm ->
+                let idfValue = match idfMap.TryFind queryTerm with
+                               | Some(idfValue) -> idfValue 
+                               | None -> log (double(1 + documentCount))
+                let frequency = match queriesIndex.TryFind query.RecordId with
+                                | Some(indexValue) -> (indexValue |> Seq.find (fun indexTerm -> queryTerm = indexTerm.key)).frequency
+                                | None -> 0
+                let b = idfValue * (double frequency)
+                //pass intermediate accu as starting point of fold
+                let newAccumulator : Accumulator = match inverseIndexDocs.TryFind queryTerm with
+                                                    | Some(indexValueSeq) ->
+                                                        indexValueSeq |> Seq.fold (fun tempAcc indexValue ->
+                                                            //printfn "Processing queryId: %i queryTerm: %s docId: %i" query.RecordId queryTerm indexValue.key
+                                                            let a = idfValue * (double indexValue.frequency)
+                                                            addIndex tempAcc indexValue.key (a*b) (fun x y -> x + y) (fun x -> x)) acc
+                                                    | None -> acc
+                ((qNormVal + (pown b 2))),newAccumulator) (0.0,Map.empty))
+    
         (queries |> List.map (fun query ->
-            let (qNormQuery,acc:Accumulator) = calculateQnormQuery query queriesIndex documentCount idfMap inverseIndexDocs Map.empty
+            let (qNormQuery,acc:Accumulator) = calculateQnormQuery query queriesIndex documentCount idfMap inverseIndexDocs
             query.RecordId,sqrt qNormQuery,acc))
+    
+    ///calculate the rsv for all queries and documents      
+    let calculateRsv (queryProcessingList:list<int*double*Accumulator>) (documents:list<TrecEntry>) (dNorm:DNormMap) =
 
-
-    let calcRsvQuery queryId qNormValue (acc:Accumulator) (documents:list<TrecEntry>) (dNorm:DNormMap)=
+        ///calculates rsv for one query
+        let calcRsvQuery queryId qNormValue (acc:Accumulator) (documents:list<TrecEntry>) (dNorm:DNormMap)=
          documents |> List.map (fun doc ->
                 match acc.TryFind doc.RecordId with
                           | None -> //printfn "No accu value found for DocumentId: %i" doc.RecordId
@@ -140,14 +145,14 @@ module Indexes =
                                               | Some(dNormValue) ->
                                                 let rsv = accuValue/(dNormValue * qNormValue)
                                                 (rsv,doc.RecordId,queryId,accuValue,dNormValue,qNormValue))
+        ///sorts all results and takes the best thousand 
+        let takeBest searchResult queryId qNormValue acc =
+            let sorted=searchResult |> List.sortBy (fun (rsv,documentId,queryId,accuValue,dNormValue,qNormValue) -> rsv) 
+            (Seq.ofList sorted) |> Seq.take 1000
 
-    let calculateRsv (queryProcessingList:list<int*double*Accumulator>) (documents:list<TrecEntry>) (dNorm:DNormMap) =
         queryProcessingList |> List.map (fun (queryId,qNormValue,acc) ->
             let searchResult=calcRsvQuery queryId qNormValue acc documents dNorm
-            let sorted=searchResult |> List.sortBy (fun (rsv,documentId,queryId,accuValue,dNormValue,qNormValue) -> rsv) 
-            let firstThousand = (Seq.ofList sorted) |> Seq.take 1000
-            let sorted=searchResult |> List.sortBy (fun (rsv,documentId,queryId,accuValue,dNormValue,qNormValue) -> rsv) 
-            let firstThousand = (Seq.ofList sorted) |> Seq.take 1000
+            let firstThousand = takeBest searchResult queryId qNormValue acc
             let sb = (new System.Text.StringBuilder()).Append("").Append(queryId).Append("_query_rsv_calc.log")
             let stream = new StreamWriter(sb.ToString(), false)
             stream.WriteLine("This line overwrites file contents!")
