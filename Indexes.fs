@@ -83,25 +83,37 @@ module Indexes =
         else
             idfMap.Add(idfKey,idfValue)
 
-    ///calculate dNorm and the idf            
-    let calculateDnorm (nonInvertedIndex:NonInvertedIndex) (invertedIndex:InvertedIndex) documentCount =
-        let asSeq = (Map.toSeq nonInvertedIndex)
-        let r=asSeq |> Seq.fold (fun (idf:IdfMap,dNorm:DNormMap) (docId,words) ->
-            let (idf,(dNormDoc:double)) = (words |> Seq.fold (fun (tempIdf:IdfMap,dNormDoc) word ->
-                let documentFrequency = match invertedIndex.TryFind word.key with //number of documents which contain the term
-                                        | Some(seq) -> Seq.length seq
-                                        | None -> 0 
-                let idfValue = log( ((double(1+documentCount)) / (double(1 + documentFrequency))))
-                let a = idfValue * (double word.frequency) 
-                let aHigh2 = pown a 2
-                let newIdfMap = addIfNotExists tempIdf word.key (double idfValue)
-                (newIdfMap,dNormDoc+ aHigh2)) (idf,0.0) )
-            let newDNorm=dNorm.Add (docId,(sqrt dNormDoc))
-            printfn "dNorm processed docId: %i" docId
-            (idf,newDNorm))
-                (Map.empty,Map.empty)
-        r
+   
+    let calculateIdf(invertedIndex:InvertedIndex) documentCount = 
+        let asArray = Map.toArray invertedIndex
+        let result=asArray |> Array.Parallel.map (fun(word,seq) ->
+            let documentFrequency = Seq.length seq
+            let idfValue = log( ((double(1+documentCount)) / (double(1 + documentFrequency))))
+            (word, (double idfValue))
+        )
+        Map.ofArray result
+         
+                
+    
+    ///calculate dNorm       
+    let calculateDnorm (nonInvertedIndex:NonInvertedIndex) (idf:IdfMap) documentCount =
+        
+        ///calculate dNorm for one document
+        let calculateDnormForDoc (idf:IdfMap) documentCount (docId,words)=
+            let dNormDoc = words |> Seq.fold (fun (dNormDoc:double) word ->
+                    let idfValue = match idf.TryFind word.key with //number of documents which contain the term
+                                            | Some(idfValue) -> idfValue
+                                            | None -> 0.0
+                    let a = idfValue * (double word.frequency) 
+                    let aHigh2 = pown a 2
+                    let newDnormDoc = dNormDoc + aHigh2
+                //let newIdfMap = addIfNotExists tempIdf word.key (double idfValue)
+                    newDnormDoc)(1.0)
+            (docId,sqrt dNormDoc)
 
+        let asArray = (Map.toArray nonInvertedIndex)
+        let result=asArray |> Array.Parallel.map (calculateDnormForDoc idf documentCount)
+        Map.ofArray result
      
     /// calculateQnorm and retuns the QnormMap and an Accumulator 
     let createQueryProcessingList (queries:list<TrecEntry>) (queriesIndex:NonInvertedIndex) documentCount (idfMap:IdfMap) (inverseIndexDocs: InvertedIndex) =
@@ -125,13 +137,13 @@ module Indexes =
                                                             addIndex tempAcc indexValue.key (a*b) (fun x y -> x + y) (fun x -> x)) acc
                                                     | None -> acc
                 ((qNormVal + (pown b 2))),newAccumulator) (0.0,Map.empty))
-    
-        (queries |> List.map (fun query ->
+        let asArray = Array.ofList queries
+        (asArray |> Array.Parallel.map (fun query ->
             let (qNormQuery,acc:Accumulator) = calculateQnormQuery query queriesIndex documentCount idfMap inverseIndexDocs
             query.RecordId,sqrt qNormQuery,acc))
     
     ///calculate the rsv for all queries and documents      
-    let calculateRsv (queryProcessingList:list<int*double*Accumulator>) (documents:list<TrecEntry>) (dNorm:DNormMap) =
+    let calculateRsv (queryProcessingList:array<int*double*Accumulator>) (documents:list<TrecEntry>) (dNorm:DNormMap) =
 
         ///calculates rsv for one query
         let calcRsvQuery queryId qNormValue (acc:Accumulator) (documents:list<TrecEntry>) (dNorm:DNormMap)=
@@ -150,15 +162,14 @@ module Indexes =
             let sorted=searchResult |> List.sortBy (fun (rsv,documentId,queryId,accuValue,dNormValue,qNormValue) -> rsv) 
             (Seq.ofList sorted) |> Seq.take 1000
 
-        queryProcessingList |> List.map (fun (queryId,qNormValue,acc) ->
+        queryProcessingList |> Array.Parallel.map (fun (queryId,qNormValue,acc) ->
             let searchResult=calcRsvQuery queryId qNormValue acc documents dNorm
             let firstThousand = takeBest searchResult queryId qNormValue acc
             let sb = (new System.Text.StringBuilder()).Append("").Append(queryId).Append("_query_rsv_calc.log")
             let stream = new StreamWriter(sb.ToString(), false)
             stream.WriteLine("This line overwrites file contents!")
             firstThousand |> Seq.iter (fun (rsv,documentId,queryId,accuValue,dNormValue,qNormValue) ->
-               stream.WriteLine("QueryId: {0}, DocumentID: {1}, RSV: {2}, Accu: {3}, dNorm: {4}, qNorm {5}",queryId,documentId,rsv,accuValue,dNormValue,qNormValue)
-               printfn "QueryId: %i DocumentId: %i RSV: %f " queryId documentId rsv)
-            stream.Close
+               stream.WriteLine("QueryId: {0}, DocumentID: {1}, RSV: {2}, Accu: {3}, dNorm: {4}, qNorm {5}",queryId,documentId,rsv,accuValue,dNormValue,qNormValue))
+            stream.Close()
             firstThousand  
           )               
