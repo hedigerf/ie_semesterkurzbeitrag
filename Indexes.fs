@@ -118,13 +118,12 @@ module Indexes =
     /// calculateQnorm and retuns the QnormMap and an Accumulator 
     let createQueryProcessingList (queries:list<TrecEntry>) (queriesIndex:NonInvertedIndex) documentCount (idfMap:IdfMap) (inverseIndexDocs: InvertedIndex) =
 
-        ///calculate Qnorm for one query and generate the accumulator
-        let calculateQnormQuery (query:TrecEntry) (queriesIndex:NonInvertedIndex) documentCount (idfMap:IdfMap) (inverseIndexDocs: InvertedIndex) =
-            (query.TokenizedText |> List.fold (fun (qNormVal,(acc:Accumulator)) queryTerm ->
+        ///calculates qNorm for a term
+        let calculateQnormTerm queryId (qNormVal,(acc:Accumulator)) queryTerm =
                 let idfValue = match idfMap.TryFind queryTerm with
                                | Some(idfValue) -> idfValue 
                                | None -> log (double(1 + documentCount))
-                let frequency = match queriesIndex.TryFind query.RecordId with
+                let frequency = match queriesIndex.TryFind queryId with
                                 | Some(indexValue) -> (indexValue |> Seq.find (fun indexTerm -> queryTerm = indexTerm.key)).frequency
                                 | None -> 0
                 let b = idfValue * (double frequency)
@@ -135,12 +134,16 @@ module Indexes =
                                                             //printfn "Processing queryId: %i queryTerm: %s docId: %i" query.RecordId queryTerm indexValue.key
                                                             let a = idfValue * (double indexValue.frequency)
                                                             addIndex tempAcc indexValue.key (a*b) (fun x y -> x + y) (fun x -> x)) acc
-                                                    | None -> acc
-                ((qNormVal + (pown b 2))),newAccumulator) (0.0,Map.empty))
+                                                    | None -> acc       
+                ((qNormVal + (pown b 2)),newAccumulator)
+
+        ///calculate Qnorm for one query and generate the accumulator
+        let calculateQnormQuery (queriesIndex:NonInvertedIndex) documentCount (idfMap:IdfMap) (inverseIndexDocs: InvertedIndex) (query:TrecEntry)  =
+            let (qNormQuery,acc) = (query.TokenizedText |> List.fold (calculateQnormTerm query.RecordId) (0.0,Map.empty))
+            query.RecordId,sqrt qNormQuery,acc
+
         let asArray = Array.ofList queries
-        (asArray |> Array.Parallel.map (fun query ->
-            let (qNormQuery,acc:Accumulator) = calculateQnormQuery query queriesIndex documentCount idfMap inverseIndexDocs
-            query.RecordId,sqrt qNormQuery,acc))
+        asArray |> Array.Parallel.map (calculateQnormQuery queriesIndex documentCount idfMap inverseIndexDocs)
     
     ///calculate the rsv for all queries and documents      
     let calculateRsv (queryProcessingList:array<int*double*Accumulator>) (documents:list<TrecEntry>) (dNorm:DNormMap) =
