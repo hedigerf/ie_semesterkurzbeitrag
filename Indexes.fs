@@ -145,10 +145,8 @@ module Indexes =
     ///calculate the rsv for all queries and documents      
     let calculateRsv (queryProcessingList:array<int*double*Accumulator>) (documents:list<TrecEntry>) (dNorm:DNormMap) =
 
-        ///calculates rsv for one query
-        let calcRsvQuery queryId qNormValue (acc:Accumulator) (documents:list<TrecEntry>) (dNorm:DNormMap)=
-         documents |> List.map (fun doc ->
-                match acc.TryFind doc.RecordId with
+        let calculateRsvDoc queryId qNormValue (acc:Accumulator) (dNorm:DNormMap) (doc:TrecEntry) =
+            match acc.TryFind doc.RecordId with
                           | None -> //printfn "No accu value found for DocumentId: %i" doc.RecordId
                                     (999.9,doc.RecordId,queryId,0.0,0.0,0.0)
                           | Some(accuValue)-> match dNorm.TryFind doc.RecordId with
@@ -156,14 +154,15 @@ module Indexes =
                                                         (999.9,doc.RecordId,queryId,accuValue,0.0,0.0)
                                               | Some(dNormValue) ->
                                                 let rsv = accuValue/(dNormValue * qNormValue)
-                                                (rsv,doc.RecordId,queryId,accuValue,dNormValue,qNormValue))
+                                                (rsv,doc.RecordId,queryId,accuValue,dNormValue,qNormValue)
         ///sorts all results and takes the best thousand 
         let takeBest searchResult queryId qNormValue acc =
             let sorted=searchResult |> List.sortBy (fun (rsv,documentId,queryId,accuValue,dNormValue,qNormValue) -> rsv) 
             (Seq.ofList sorted) |> Seq.take 1000
 
-        queryProcessingList |> Array.Parallel.map (fun (queryId,qNormValue,acc) ->
-            let searchResult=calcRsvQuery queryId qNormValue acc documents dNorm
+        ///calculates rsv for one query
+        let calcRsvQuery (documents:list<TrecEntry>) (dNorm:DNormMap) ((queryId:int),qNormValue,acc)=
+            let searchResult = documents |> List.map ((calculateRsvDoc queryId qNormValue acc dNorm))
             let firstThousand = takeBest searchResult queryId qNormValue acc
             let sb = (new System.Text.StringBuilder()).Append("").Append(queryId).Append("_query_rsv_calc.log")
             let stream = new StreamWriter(sb.ToString(), false)
@@ -172,4 +171,6 @@ module Indexes =
                stream.WriteLine("QueryId: {0}, DocumentID: {1}, RSV: {2}, Accu: {3}, dNorm: {4}, qNorm {5}",queryId,documentId,rsv,accuValue,dNormValue,qNormValue))
             stream.Close()
             firstThousand  
-          )               
+
+        queryProcessingList |> Array.Parallel.map (calcRsvQuery documents dNorm) 
+                       
