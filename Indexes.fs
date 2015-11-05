@@ -151,16 +151,16 @@ module Indexes =
         let calculateRsvDoc queryId qNormValue (acc:Accumulator) (dNorm:DNormMap) (doc:TrecEntry) =
             match acc.TryFind doc.RecordId with
                           | None -> //printfn "No accu value found for DocumentId: %i" doc.RecordId
-                                    (999.9,doc.RecordId,queryId,0.0,0.0,0.0)
+                                    (0.0,doc.RecordId,queryId,0.0,0.0,0.0)
                           | Some(accuValue)-> match dNorm.TryFind doc.RecordId with
                                               | None -> //printfn "No dNorm value found for DocumentId: %i" doc.RecordId
-                                                        (999.9,doc.RecordId,queryId,accuValue,0.0,0.0)
+                                                        (0.0,doc.RecordId,queryId,accuValue,0.0,0.0)
                                               | Some(dNormValue) ->
                                                 let rsv = accuValue/(dNormValue * qNormValue)
                                                 (rsv,doc.RecordId,queryId,accuValue,dNormValue,qNormValue)
         ///sorts all results and takes the best thousand 
         let takeBest searchResult queryId qNormValue acc =
-            let sorted=searchResult |> List.sortBy (fun (rsv,documentId,queryId,accuValue,dNormValue,qNormValue) -> rsv) 
+            let sorted=searchResult |> List.sortBy (fun (rsv,documentId,queryId,accuValue,dNormValue,qNormValue) -> -rsv) 
             (Seq.ofList sorted) |> Seq.take 1000
 
         ///calculates rsv for one query
