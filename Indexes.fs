@@ -103,7 +103,7 @@ module Indexes =
             let dNormDoc = words |> Seq.fold (fun (dNormDoc:double) word ->
                     let idfValue = match idf.TryFind word.key with //number of documents which contain the term
                                             | Some(idfValue) -> idfValue
-                                            | None -> 0.0
+                                            | None -> 0.0; 
                     let a = idfValue * (double word.frequency) 
                     let aHigh2 = pown a 2
                     let newDnormDoc = dNormDoc + aHigh2

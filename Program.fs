@@ -70,19 +70,19 @@ module Main =
             TrecEntry(doc.RecordId,doc.Text,stemm(doc.Text)))))
              
     let loadDocuments path =
-        let fileNames = Directory.GetFiles(path, "*", SearchOption.AllDirectories)
-        fileNames |> Array.mapi (fun i fileName ->
-             let pathToFile = (new System.Text.StringBuilder()).Append(path).Append("/").Append(fileName)
-             let text=System.IO.File.ReadAllText(fileName)
-             let entry = TrecEntry(i+1,text,stemm text)
+        let filePathes = Directory.GetFiles(path, "*", SearchOption.AllDirectories)
+        filePathes |> Array.map (fun filePath ->
+             let fileName = Path.GetFileName(filePath)
+             let text=System.IO.File.ReadAllText(filePath)
+             let entry = TrecEntry((int fileName),text,stemm text)
              entry)
 
 
     [<EntryPoint>]
     let main argv = 
         let stopWatch = System.Diagnostics.Stopwatch.StartNew()
-        //let documentItems = loadTrecEntries "../../Resources/irg_collection.trec"
-        let documentItems = Array.toList (loadDocuments "../../Resources/Praktika5/documents")
+        let documentItems = loadTrecEntries "../../Resources/irg_collection.trec"
+        //let documentItems = Array.toList (loadDocuments "../../Resources/Praktika5/documents")
         let documentCount = documentItems.Length;
         printfn "Loaded %i documents..." documentCount
         let indexPair = (Indexes.createIndexes documentItems)
@@ -91,8 +91,8 @@ module Main =
         printfn "idf created."
         let (dNorm:DNormMap)  = Indexes.calculateDnorm indexPair.nonInvertedIndex idf documentCount
         printfn "dNorm created."
-        //let queries = loadTrecEntries "../../Resources/irg_queries.trec"
-        let queries = Array.toList (loadDocuments "../../Resources/Praktika5/queries")
+        let queries = loadTrecEntries "../../Resources/irg_queries.trec"
+        //let queries = Array.toList (loadDocuments "../../Resources/Praktika5/queries")
         printfn "queries loaded."
         let queriesIndexPair = (Indexes.createIndexes queries)
         let queryProcessingList = Indexes.createQueryProcessingList queries queriesIndexPair.nonInvertedIndex documentCount idf indexPair.invertedIndex
