@@ -173,7 +173,7 @@ module Indexes =
             firstThousand |> Seq.iter (fun (rsv,documentId,queryId,accuValue,dNormValue,qNormValue) ->
                stream.WriteLine("QueryId: {0}, DocumentID: {1}, RSV: {2}, Accu: {3}, dNorm: {4}, qNorm {5}",queryId,documentId,rsv,accuValue,dNormValue,qNormValue))
             stream.Close()
-            firstThousand  
+            Seq.toArray firstThousand  
 
         queryProcessingList |> Array.Parallel.map (calcRsvQuery documents dNorm) 
                        

@@ -76,6 +76,14 @@ module Main =
              let text=System.IO.File.ReadAllText(filePath)
              let entry = TrecEntry((int fileName),text,stemm text)
              entry)
+    
+    //creates a result file in trecEntry format witht the given fileName
+    let createResultTrecFile results fileName =
+        let stream = new StreamWriter(fileName, false)
+        stream.WriteLine("This line overwrites file contents!")
+        results |> Array.iter (fun queryResult ->
+            queryResult |> Array.iteri (fun rank (rsv,documentId,queryId,accuValue,dNormValue,qNormValue) ->
+                stream.WriteLine("{0} {1} {2} {3} {4} {5}",queryId,"Q0",documentId,rank,rsv,"rethed")))
 
 
     [<EntryPoint>]
@@ -96,8 +104,9 @@ module Main =
         printfn "queries loaded."
         let queriesIndexPair = (Indexes.createIndexes queries)
         let queryProcessingList = Indexes.createQueryProcessingList queries queriesIndexPair.nonInvertedIndex documentCount idf indexPair.invertedIndex
-        let rsv = Indexes.calculateRsv queryProcessingList documentItems dNorm
+        let results = Indexes.calculateRsv queryProcessingList documentItems dNorm
         printfn "rsv calculated."
+        createResultTrecFile results "original.trec"
         stopWatch.Stop()
         printfn "%f" stopWatch.Elapsed.TotalMilliseconds
         Threading.Thread.Sleep(4000)
