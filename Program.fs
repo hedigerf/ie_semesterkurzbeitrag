@@ -79,13 +79,38 @@ module Main =
     
     //creates a result file in trecEntry format witht the given fileName
     let createResultTrecFile results fileName =
+            
+        let formatInt (digits:int) i = 
+            let sb = new System.Text.StringBuilder()
+            let myPrint format = Printf.bprintf sb format
+            //let myPrint (format:Printf.BuilderFormat<int,string>) = Printf.bprintf sb format  
+            //let frmt = (new System.Text.StringBuilder()).Append("%").Append(digits).Append("i").ToString()
+            //let format = Printf.TextWriterFormat<int->unit>(frmt)
+            //let format = Printf.BuilderFormat<int,string>(frmt)    
+            if digits = 5
+                then do myPrint "%5i" i
+            //elif digits = 16
+                //then do myPrint "%16f0" i
+            else
+                do myPrint "%3i" i
+            sb.ToString()
+
         let stream = new StreamWriter(fileName, false)
         stream.WriteLine("This line overwrites file contents!")
         results |> Array.iter (fun queryResult ->
-            queryResult |> Array.iteri (fun rank (rsv,documentId,queryId,accuValue,dNormValue,qNormValue) ->
-                stream.WriteLine("{0} {1} {2} {3} {4} {5}",queryId,"Q0",documentId,rank,rsv,"rethed")))
+            queryResult |> Array.iteri (fun rank (rsv,(documentId:int),queryId,accuValue,dNormValue,qNormValue) ->
+                stream.WriteLine("{0} {1} {2} {3} {4} {5}",formatInt 5 queryId,"Q0",formatInt 5 documentId,formatInt 3 rank,rsv,"rethed")))
 
-
+    let generateTrecForQueries documentItems documentCount indexPair idf dNorm pathToQueries resultFileName =
+        let queries = loadTrecEntries pathToQueries
+        //let queries = Array.toList (loadDocuments "../../Resources/Praktika5/queries")
+        printfn "queries loaded."
+        let queriesIndexPair = (Indexes.createIndexes queries)
+        let queryProcessingList = Indexes.createQueryProcessingList queries queriesIndexPair.nonInvertedIndex documentCount idf indexPair.invertedIndex
+        let results = Indexes.calculateRsv queryProcessingList documentItems dNorm
+        printfn "rsv calculated."
+        createResultTrecFile results resultFileName
+         
     [<EntryPoint>]
     let main argv = 
         let stopWatch = System.Diagnostics.Stopwatch.StartNew()
@@ -99,14 +124,9 @@ module Main =
         printfn "idf created."
         let (dNorm:DNormMap)  = Indexes.calculateDnorm indexPair.nonInvertedIndex idf documentCount
         printfn "dNorm created."
-        let queries = loadTrecEntries "../../Resources/irg_queries.trec"
-        //let queries = Array.toList (loadDocuments "../../Resources/Praktika5/queries")
-        printfn "queries loaded."
-        let queriesIndexPair = (Indexes.createIndexes queries)
-        let queryProcessingList = Indexes.createQueryProcessingList queries queriesIndexPair.nonInvertedIndex documentCount idf indexPair.invertedIndex
-        let results = Indexes.calculateRsv queryProcessingList documentItems dNorm
-        printfn "rsv calculated."
-        createResultTrecFile results "original.trec"
+        let generate = generateTrecForQueries documentItems documentCount indexPair idf dNorm
+        generate "../../Resources/irg_queries.trec" "original.trec"
+        generate "../../Resources/irg_queries_rethed.trec" "rethed_enhanced.trec"
         stopWatch.Stop()
         printfn "%f" stopWatch.Elapsed.TotalMilliseconds
         Threading.Thread.Sleep(4000)
